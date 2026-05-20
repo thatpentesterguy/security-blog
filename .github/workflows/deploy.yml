@@ -40,10 +40,10 @@ jobs:
       - name: Generate Pagefind search index
         run: npx pagefind --site dist --output-subdir _pagefind
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=thatpentesterguy-blog --commit-dirty=true
+          command: deploy
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
