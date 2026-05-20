@@ -49,16 +49,16 @@ export const SITE: SiteConfig = {
   // ==========================================
 
   /** Default site title used as homepage <title> and meta. */
-  title: 'Security Research Blog',
+  title: "thatpentesterguy's blog",
   /** Site tagline / description. */
   description:
-    'Offensive security, vulnerability research, red team insights, and CTF write-ups.',
+    'Just random 3 AM thoughts',
   /** Author/handle shown in footer + meta. */
   author: {
     name: 'Atul Jaiswal',
     url: GITHUB_HANDLE ? `https://github.com/${GITHUB_HANDLE}` : undefined,
     avatar: avatarImg,
-    bio: 'Security professional. Offensive security researcher. Red team ops.',
+    bio: 'Just random 3 AM thoughts',
   },
   /** Default OG image. */
   defaultOgImage: ogDefaultImg.src,
