@@ -1,0 +1,13 @@
+name = "thatpentesterguy-blog"
+compatibility_date = "2024-01-01"
+
+# Static assets served from the dist/ build output
+[assets]
+directory = "./dist"
+
+# Workers Observability — enables logs, metrics, traces in Cloudflare dashboard
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
