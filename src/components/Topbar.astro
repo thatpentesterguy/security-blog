@@ -69,8 +69,20 @@ const home = localizedPath('/', locale);
     </a>
   </div>
 
-  <div class="chirpy-topbar__search">
-    <SearchButton locale={locale} />
-    {SITE.multilingual && <LanguageSwitcher locale={locale} availableLocales={availableLocales} />}
+  <div class="flex items-center gap-4">
+    <a
+      href={localizedPath('/about', locale)}
+      class:list={[
+        'hover:text-primary text-base-content/70 hidden text-sm font-medium transition sm:block',
+        Astro.url.pathname.includes('/about') && 'text-primary',
+      ]}
+    >
+      About
+    </a>
+
+    <div class="chirpy-topbar__search">
+      <SearchButton locale={locale} />
+      {SITE.multilingual && <LanguageSwitcher locale={locale} availableLocales={availableLocales} />}
+    </div>
   </div>
 </header>
