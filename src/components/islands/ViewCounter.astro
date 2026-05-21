@@ -23,15 +23,14 @@ const { path } = Astro.props;
     const path = el.getAttribute('data-vc-path');
     if (!path) return;
     try {
-      const res = await fetch(
-        `https://thatpentesterguy.goatcounter.com/counter/${encodeURIComponent(path)}.json`,
-      );
+      const res = await fetch(`/api/views?path=${encodeURIComponent(path)}`);
       if (!res.ok) return;
       const { count } = await res.json();
+      if (!count) return;
       const countEl = el.querySelector('[data-vc-count]');
       if (countEl) countEl.textContent = count;
     } catch {
-      // Silently fail — no count shown if GoatCounter is unreachable
+      // Silently fail — no count shown if the proxy is unreachable
     }
   });
 </script>
