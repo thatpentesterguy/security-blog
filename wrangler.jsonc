@@ -3,14 +3,7 @@
   "name": "thatpentesterguy-blog",
   "pages_build_output_dir": "./dist",
   "compatibility_date": "2025-10-08",
-  "compatibility_flags": ["nodejs_compat"],
-  "observability": {
-    "logs": {
-      "enabled": true,
-      "invocation_logs": true
-    },
-    "traces": {
-      "enabled": false
-    }
-  }
+  "compatibility_flags": [
+    "nodejs_compat"
+  ]
 }
