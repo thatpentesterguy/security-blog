@@ -1,0 +1,34 @@
+---
+/**
+ * Thin progress bar fixed at the top of the viewport.
+ * Fills left-to-right as the user scrolls through the post.
+ */
+---
+
+<div
+  id="reading-progress"
+  class="fixed top-0 left-0 z-50 h-0.5 w-0 bg-primary"
+  role="progressbar"
+  aria-hidden="true"
+></div>
+
+<script>
+  function initProgress() {
+    const bar = document.getElementById('reading-progress');
+    if (!bar) return;
+
+    function update() {
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const pct = docHeight > 0 ? Math.min((scrollTop / docHeight) * 100, 100) : 0;
+      bar.style.width = `${pct}%`;
+    }
+
+    window.addEventListener('scroll', update, { passive: true });
+    update();
+  }
+
+  // Run on first load and after every Astro view transition
+  document.addEventListener('astro:page-load', initProgress);
+  initProgress();
+</script>

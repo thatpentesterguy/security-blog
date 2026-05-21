@@ -9,6 +9,42 @@ interface Props {
 
 const { meta } = Astro.props;
 
+const jsonLd =
+  meta.type === 'article'
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        headline: meta.title,
+        description: meta.description,
+        url: meta.canonical,
+        image: meta.ogImage,
+        datePublished: meta.publishedTime,
+        dateModified: meta.modifiedTime ?? meta.publishedTime,
+        keywords: meta.tags?.join(', '),
+        author: {
+          '@type': 'Person',
+          name: SITE.author.name,
+          url: SITE.author.url,
+        },
+        publisher: {
+          '@type': 'Organization',
+          name: SITE.title,
+          url: SITE.url,
+        },
+      }
+    : {
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: SITE.title,
+        description: SITE.description,
+        url: SITE.url,
+        author: {
+          '@type': 'Person',
+          name: SITE.author.name,
+          url: SITE.author.url,
+        },
+      };
+
 // Feed auto-discovery — feed readers and browser extensions look for
 // these <link rel="alternate"> tags in <head>. We advertise the active
 // locale's feed as the primary one, and (when multilingual) every other
@@ -81,3 +117,6 @@ const sitemapHref = withBase('/sitemap-index.xml');
   SITE.multilingual &&
     meta.hreflangs.map(({ locale, href }) => <link rel="alternate" hreflang={locale} href={href} />)
 }
+
+{/* JSON-LD Structured Data */}
+<script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />

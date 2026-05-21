@@ -5,6 +5,7 @@ import SmartImage from '../components/SmartImage.astro';
 import TableOfContents from '../components/islands/TableOfContents.astro';
 import Giscus from '../components/islands/Giscus.astro';
 import ViewCounter from '../components/islands/ViewCounter.astro';
+import ReadingProgress from '../components/islands/ReadingProgress.astro';
 import MathStyles from '../components/MathStyles.astro';
 import { Icon } from 'astro-icon/components';
 import { GISCUS, SITE, type Locale } from '../config';
@@ -109,6 +110,7 @@ const crumbs = [
     )
   }
 
+  <ReadingProgress />
   <article class={articleClass}>
     <header class="mb-8">
       <h1
