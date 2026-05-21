@@ -4,6 +4,7 @@ import PostNav from '../components/PostNav.astro';
 import SmartImage from '../components/SmartImage.astro';
 import TableOfContents from '../components/islands/TableOfContents.astro';
 import Giscus from '../components/islands/Giscus.astro';
+import ViewCounter from '../components/islands/ViewCounter.astro';
 import MathStyles from '../components/MathStyles.astro';
 import { Icon } from 'astro-icon/components';
 import { GISCUS, SITE, type Locale } from '../config';
@@ -152,6 +153,7 @@ const crumbs = [
           {minutes}
           {t('post.readingTime')}
         </span>
+        <ViewCounter path={Astro.url.pathname} />
       </div>
     </header>
 
