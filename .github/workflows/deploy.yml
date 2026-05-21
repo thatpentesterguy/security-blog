@@ -32,7 +32,7 @@ jobs:
       - name: Build
         run: npx astro build
         env:
-          SITE_URL: https://thatpentesterguy-blog.pages.dev
+          SITE_URL: https://thatpentesterguy.com
           PUBLIC_GITHUB_HANDLE: thatpentesterguy
           PUBLIC_GITHUB_REPO: security-blog
           PUBLIC_TWITTER_HANDLE: atulkjaiswal
