@@ -29,6 +29,7 @@ const GITHUB_HANDLE = import.meta.env.PUBLIC_GITHUB_HANDLE ?? '';
 const GITHUB_REPO = import.meta.env.PUBLIC_GITHUB_REPO ?? 'chirping-astro';
 const TWITTER_HANDLE = import.meta.env.PUBLIC_TWITTER_HANDLE ?? '';
 const CONTACT_EMAIL = import.meta.env.PUBLIC_CONTACT_EMAIL ?? '';
+const LINKEDIN_HANDLE = 'atulkishorjaiswal';
 const THEME_REPO_URL = 'https://github.com/kannansuresh/chirping-astro';
 
 /**
@@ -141,6 +142,11 @@ export const SOCIALS: readonly SocialLink[] = [
     label: 'Twitter',
     href: `https://x.com/${TWITTER_HANDLE}`,
     icon: 'simple-icons:x',
+  },
+  {
+    label: 'LinkedIn',
+    href: `https://www.linkedin.com/in/${LINKEDIN_HANDLE}`,
+    icon: 'simple-icons:linkedin',
   },
   CONTACT_EMAIL && {
     label: 'Email',

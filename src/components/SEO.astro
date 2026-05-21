@@ -9,6 +9,18 @@ interface Props {
 
 const { meta } = Astro.props;
 
+const author = {
+  '@type': 'Person',
+  name: SITE.author.name,
+  url: SITE.url,
+  jobTitle: 'Cloud Security Engineer',
+  sameAs: [
+    'https://github.com/thatpentesterguy',
+    'https://x.com/atulkjaiswal',
+    'https://www.linkedin.com/in/atulkishorjaiswal',
+  ],
+};
+
 const jsonLd =
   meta.type === 'article'
     ? {
@@ -21,11 +33,7 @@ const jsonLd =
         datePublished: meta.publishedTime,
         dateModified: meta.modifiedTime ?? meta.publishedTime,
         keywords: meta.tags?.join(', '),
-        author: {
-          '@type': 'Person',
-          name: SITE.author.name,
-          url: SITE.author.url,
-        },
+        author,
         publisher: {
           '@type': 'Organization',
           name: SITE.title,
@@ -38,11 +46,7 @@ const jsonLd =
         name: SITE.title,
         description: SITE.description,
         url: SITE.url,
-        author: {
-          '@type': 'Person',
-          name: SITE.author.name,
-          url: SITE.author.url,
-        },
+        author,
       };
 
 // Feed auto-discovery — feed readers and browser extensions look for
