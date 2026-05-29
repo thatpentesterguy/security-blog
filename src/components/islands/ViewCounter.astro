@@ -20,45 +20,59 @@ const { path } = Astro.props;
 </span>
 
 <script>
-  document.querySelectorAll<HTMLElement>('[data-vc-path]').forEach(async (el) => {
-    const path = el.getAttribute('data-vc-path');
-    if (!path) return;
+  function countViews() {
+    document.querySelectorAll<HTMLElement>('[data-vc-path]').forEach(async (el) => {
+      // Guard so the optimistic re-runs (initial call + astro:page-load) can't
+      // process the same element twice. Set synchronously, before any await,
+      // so there's no race that could double-POST.
+      if (el.dataset.vcInit === '1') return;
+      el.dataset.vcInit = '1';
 
-    // Count one view per browser session per path; on later visits within the
-    // same session just read the total. This is what filters refresh-spam, and
-    // since it runs in JS it also skips most non-rendering bots.
-    const seenKey = `vc:${path}`;
-    let counted = false;
-    try {
-      counted = sessionStorage.getItem(seenKey) === '1';
-    } catch {
-      // sessionStorage unavailable (private mode / blocked) — fall back to read.
-    }
+      const path = el.getAttribute('data-vc-path');
+      if (!path) return;
 
-    try {
-      const res = counted
-        ? await fetch(`/api/views?path=${encodeURIComponent(path)}`)
-        : await fetch('/api/views', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path }),
-          });
-      if (!res.ok) return;
-
-      if (!counted) {
-        try {
-          sessionStorage.setItem(seenKey, '1');
-        } catch {
-          /* ignore */
-        }
+      // Count one view per browser session per path; on later visits within the
+      // same session just read the total. This is what filters refresh-spam, and
+      // since it runs in JS it also skips most non-rendering bots.
+      const seenKey = `vc:${path}`;
+      let counted = false;
+      try {
+        counted = sessionStorage.getItem(seenKey) === '1';
+      } catch {
+        // sessionStorage unavailable (private mode / blocked) — fall back to read.
       }
 
-      const { count } = await res.json();
-      if (!count) return;
-      const countEl = el.querySelector('[data-vc-count]');
-      if (countEl) countEl.textContent = count;
-    } catch {
-      // Silently fail — no count shown if the API is unreachable.
-    }
-  });
+      try {
+        const res = counted
+          ? await fetch(`/api/views?path=${encodeURIComponent(path)}`)
+          : await fetch('/api/views', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ path }),
+            });
+        if (!res.ok) return;
+
+        if (!counted) {
+          try {
+            sessionStorage.setItem(seenKey, '1');
+          } catch {
+            /* ignore */
+          }
+        }
+
+        const { count } = await res.json();
+        if (!count) return;
+        const countEl = el.querySelector('[data-vc-count]');
+        if (countEl) countEl.textContent = count;
+      } catch {
+        // Silently fail — no count shown if the API is unreachable.
+      }
+    });
+  }
+
+  // Run on first load and after every Astro view transition, so posts reached
+  // via in-site navigation (client-side swap) get counted too — not just full
+  // page loads. The per-element guard above keeps it idempotent.
+  document.addEventListener('astro:page-load', countViews);
+  countViews();
 </script>
