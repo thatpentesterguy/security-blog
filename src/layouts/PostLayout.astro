@@ -6,6 +6,7 @@ import TableOfContents from '../components/islands/TableOfContents.astro';
 import Giscus from '../components/islands/Giscus.astro';
 import ViewCounter from '../components/islands/ViewCounter.astro';
 import ShareButtons from '../components/islands/ShareButtons.astro';
+import HackerNewsDiscussion from '../components/islands/HackerNewsDiscussion.astro';
 import ReadingProgress from '../components/islands/ReadingProgress.astro';
 import MathStyles from '../components/MathStyles.astro';
 import { Icon } from 'astro-icon/components';
@@ -206,6 +207,8 @@ const crumbs = [
     }
 
     <PostNav prev={prev} next={next} locale={locale} />
+
+    <HackerNewsDiscussion title={post.data.title} path={Astro.url.pathname} />
 
     {
       commentsEnabled ? (
