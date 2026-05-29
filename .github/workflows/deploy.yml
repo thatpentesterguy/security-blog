@@ -41,6 +41,18 @@ jobs:
       - name: Generate Pagefind search index
         run: npx pagefind --site dist --output-subdir _pagefind
 
+      # Apply D1 migrations before deploying. Idempotent: wrangler records which
+      # migrations have run and skips them. Only on push to main, so PR builds
+      # never mutate the production database.
+      - name: Apply D1 migrations
+        if: github.event_name == 'push'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          command: d1 migrations apply thatpentesterguy-blog-views --remote
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:

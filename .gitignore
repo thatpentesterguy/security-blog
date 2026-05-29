@@ -24,6 +24,12 @@ pnpm-debug.log*
 .env.*
 !.env.example
 
+# Cloudflare Pages local secrets
+.dev.vars
+
+# Wrangler local state (local D1, KV, caches)
+.wrangler/
+
 # editor
 .idea/
 
