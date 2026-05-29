@@ -1,0 +1,114 @@
+---
+/**
+ * ShareButtons
+ * ------------
+ * Per-post share affordances. X / LinkedIn / Hacker News are plain links
+ * (rendered server-side, no JS needed). "Copy link" and the native Web Share
+ * sheet are progressive enhancements wired up client-side — the native button
+ * stays hidden unless `navigator.share` exists (mobile / supported browsers).
+ */
+import { Icon } from 'astro-icon/components';
+import { SITE } from '../../config';
+
+interface Props {
+  title: string;
+  /** Page path (with locale/base prefix), e.g. /posts/my-post */
+  path: string;
+  /** Icons-only, smaller — for the top meta strip. */
+  compact?: boolean;
+}
+
+const { title, path, compact = false } = Astro.props;
+
+const url = new URL(path, SITE.url).href;
+const via = (import.meta.env.PUBLIC_TWITTER_HANDLE ?? '').trim();
+
+const enc = encodeURIComponent;
+const xHref = `https://twitter.com/intent/tweet?url=${enc(url)}&text=${enc(title)}${via ? `&via=${enc(via)}` : ''}`;
+const liHref = `https://www.linkedin.com/sharing/share-offsite/?url=${enc(url)}`;
+const hnHref = `https://news.ycombinator.com/submitlink?u=${enc(url)}&t=${enc(title)}`;
+
+const size = compact ? 16 : 18;
+const btn =
+  'text-base-content/60 hover:text-primary inline-flex items-center justify-center rounded p-1.5 transition-colors';
+---
+
+<div
+  class:list={['inline-flex flex-wrap items-center gap-1', compact ? 'text-sm' : 'gap-x-2']}
+  data-share
+  data-share-url={url}
+  data-share-title={title}
+>
+  {
+    !compact && (
+      <span class="text-base-content/70 mr-1 text-sm font-semibold tracking-wide uppercase">
+        Share
+      </span>
+    )
+  }
+
+  <a href={xHref} target="_blank" rel="noopener noreferrer" aria-label="Share on X" class={btn}>
+    <Icon name="simple-icons:x" width={size} height={size} />
+  </a>
+  <a
+    href={liHref}
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label="Share on LinkedIn"
+    class={btn}
+  >
+    <Icon name="simple-icons:linkedin" width={size} height={size} />
+  </a>
+  <a
+    href={hnHref}
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label="Share on Hacker News"
+    class={btn}
+  >
+    <Icon name="simple-icons:ycombinator" width={size} height={size} />
+  </a>
+  <button type="button" class={btn} data-share-copy aria-label="Copy link">
+    <Icon name="lucide:link" width={size} height={size} data-copy-default />
+    <Icon name="lucide:check" width={size} height={size} class="hidden text-success" data-copy-done />
+  </button>
+  <button type="button" class:list={[btn, 'hidden']} data-share-native aria-label="Share…">
+    <Icon name="lucide:share-2" width={size} height={size} />
+  </button>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-share]').forEach((root) => {
+    const url = root.getAttribute('data-share-url') || location.href;
+    const title = root.getAttribute('data-share-title') || document.title;
+
+    // Native share sheet — only reveal where supported (mostly mobile).
+    const nativeBtn = root.querySelector<HTMLButtonElement>('[data-share-native]');
+    if (nativeBtn && typeof navigator !== 'undefined' && 'share' in navigator) {
+      nativeBtn.classList.remove('hidden');
+      nativeBtn.addEventListener('click', () => navigator.share({ title, url }).catch(() => {}));
+    }
+
+    // Copy link, with a brief checkmark confirmation.
+    const copyBtn = root.querySelector<HTMLButtonElement>('[data-share-copy]');
+    if (copyBtn) {
+      const def = copyBtn.querySelector<SVGElement>('[data-copy-default]');
+      const done = copyBtn.querySelector<SVGElement>('[data-copy-done]');
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(url);
+          def?.classList.add('hidden');
+          done?.classList.remove('hidden');
+          copyBtn.setAttribute('aria-label', 'Link copied');
+          setTimeout(() => {
+            done?.classList.add('hidden');
+            def?.classList.remove('hidden');
+            copyBtn.setAttribute('aria-label', 'Copy link');
+          }, 1500);
+        } catch {
+          /* clipboard unavailable */
+        }
+      });
+    }
+  });
+</script>
