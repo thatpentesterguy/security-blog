@@ -1,12 +1,13 @@
 ---
 /**
- * Fetches the GoatCounter page-view count for the current post and renders it
- * inline alongside the date / reading-time metadata strip.
+ * Fetches the Cloudflare Web Analytics page-view count for the current post
+ * (via /api/views) and renders it inline alongside the date / reading-time
+ * metadata strip.
  */
 import { Icon } from 'astro-icon/components';
 
 interface Props {
-  /** The page path that GoatCounter recorded, e.g. /posts/my-post */
+  /** The page path Web Analytics recorded, e.g. /posts/my-post */
   path: string;
 }
 
@@ -22,15 +23,42 @@ const { path } = Astro.props;
   document.querySelectorAll<HTMLElement>('[data-vc-path]').forEach(async (el) => {
     const path = el.getAttribute('data-vc-path');
     if (!path) return;
+
+    // Count one view per browser session per path; on later visits within the
+    // same session just read the total. This is what filters refresh-spam, and
+    // since it runs in JS it also skips most non-rendering bots.
+    const seenKey = `vc:${path}`;
+    let counted = false;
     try {
-      const res = await fetch(`/api/views?path=${encodeURIComponent(path)}`);
+      counted = sessionStorage.getItem(seenKey) === '1';
+    } catch {
+      // sessionStorage unavailable (private mode / blocked) — fall back to read.
+    }
+
+    try {
+      const res = counted
+        ? await fetch(`/api/views?path=${encodeURIComponent(path)}`)
+        : await fetch('/api/views', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path }),
+          });
       if (!res.ok) return;
+
+      if (!counted) {
+        try {
+          sessionStorage.setItem(seenKey, '1');
+        } catch {
+          /* ignore */
+        }
+      }
+
       const { count } = await res.json();
       if (!count) return;
       const countEl = el.querySelector('[data-vc-count]');
       if (countEl) countEl.textContent = count;
     } catch {
-      // Silently fail — no count shown if the proxy is unreachable
+      // Silently fail — no count shown if the API is unreachable.
     }
   });
 </script>

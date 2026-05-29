@@ -5,5 +5,16 @@
   "compatibility_date": "2025-10-08",
   "compatibility_flags": [
     "nodejs_compat"
+  ],
+  // D1 database backing the per-post view counter (functions/api/views.js).
+  // Because we deploy via `wrangler pages deploy` (GitHub Actions), this binding
+  // is read from here at deploy time — not configured in the Pages dashboard.
+  // Exposed to the Pages Function as `env.DB`.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "thatpentesterguy-blog-views",
+      "database_id": "f0e7b278-9ce4-4e9d-a22f-e3103b0de53f"
+    }
   ]
 }
