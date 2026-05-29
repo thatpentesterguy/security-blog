@@ -1,0 +1,75 @@
+---
+/**
+ * HackerNewsDiscussion
+ * --------------------
+ * "Discuss on Hacker News" link. On load it queries the HN Algolia search API
+ * for this post's URL: if a submission exists, the link points to its comment
+ * thread with the live comment count; otherwise it falls back to the HN submit
+ * page so a reader can post it. Pure progressive enhancement — server-renders
+ * as the submit link and upgrades client-side.
+ */
+import { Icon } from 'astro-icon/components';
+import { SITE } from '../../config';
+
+interface Props {
+  title: string;
+  /** Page path (with locale/base prefix), e.g. /posts/my-post */
+  path: string;
+}
+
+const { title, path } = Astro.props;
+
+const url = new URL(path, SITE.url).href;
+const submitHref = `https://news.ycombinator.com/submitlink?u=${encodeURIComponent(url)}&t=${encodeURIComponent(title)}`;
+---
+
+<div class="mt-10" data-hn-discuss data-hn-url={url}>
+  <a
+    href={submitHref}
+    target="_blank"
+    rel="noopener noreferrer"
+    data-hn-link
+    class="text-base-content/70 hover:text-primary inline-flex items-center gap-2 text-sm font-medium transition-colors"
+  >
+    <Icon name="simple-icons:ycombinator" width={18} height={18} />
+    <span data-hn-label>Discuss on Hacker News</span>
+  </a>
+</div>
+
+<script>
+  interface HnHit {
+    objectID: string;
+    url?: string;
+    num_comments?: number;
+  }
+
+  document.querySelectorAll<HTMLElement>('[data-hn-discuss]').forEach(async (root) => {
+    const url = root.getAttribute('data-hn-url');
+    const link = root.querySelector<HTMLAnchorElement>('[data-hn-link]');
+    const label = root.querySelector<HTMLElement>('[data-hn-label]');
+    if (!url || !link || !label) return;
+
+    try {
+      const api =
+        'https://hn.algolia.com/api/v1/search?tags=story&restrictSearchableAttributes=url&query=' +
+        encodeURIComponent(url);
+      const res = await fetch(api);
+      if (!res.ok) return;
+
+      const data = (await res.json()) as { hits?: HnHit[] };
+      // Keep only exact-URL matches, then prefer the most-discussed thread.
+      const hits = (data.hits ?? [])
+        .filter((h) => h.url === url)
+        .sort((a, b) => (b.num_comments ?? 0) - (a.num_comments ?? 0));
+      if (!hits.length) return; // no thread yet — leave the submit link
+
+      const top = hits[0];
+      const n = top.num_comments ?? 0;
+      link.href = `https://news.ycombinator.com/item?id=${top.objectID}`;
+      label.textContent =
+        n === 1 ? 'Discuss on Hacker News (1 comment)' : `Discuss on Hacker News (${n} comments)`;
+    } catch {
+      // Network/API failure — leave the submit link as the fallback.
+    }
+  });
+</script>
