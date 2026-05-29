@@ -5,6 +5,7 @@ import SmartImage from '../components/SmartImage.astro';
 import TableOfContents from '../components/islands/TableOfContents.astro';
 import Giscus from '../components/islands/Giscus.astro';
 import ViewCounter from '../components/islands/ViewCounter.astro';
+import ShareButtons from '../components/islands/ShareButtons.astro';
 import ReadingProgress from '../components/islands/ReadingProgress.astro';
 import MathStyles from '../components/MathStyles.astro';
 import { Icon } from 'astro-icon/components';
@@ -156,6 +157,7 @@ const crumbs = [
           {t('post.readingTime')}
         </span>
         <ViewCounter path={Astro.url.pathname} />
+        <ShareButtons title={post.data.title} path={Astro.url.pathname} compact />
       </div>
     </header>
 
@@ -182,6 +184,10 @@ const crumbs = [
 
     <div class="prose-chirpy max-w-none">
       <slot />
+    </div>
+
+    <div class="border-base-300 mt-10 flex items-center gap-3 border-t pt-6">
+      <ShareButtons title={post.data.title} path={Astro.url.pathname} />
     </div>
 
     {
