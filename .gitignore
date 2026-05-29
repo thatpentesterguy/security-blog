@@ -32,6 +32,7 @@ pnpm-debug.log*
 
 # editor
 .idea/
+.obsidian/
 
 # Claude Code
 .claude/
